@@ -1,19 +1,34 @@
-// import fs from "fs";
 import * as fs from "fs";
+import ExcelJS from "exceljs";
 
+const FILE_PATH = "data.xlsx";
 
-const FILE_PATH = "data.json";
+/**
+ * Saves flight price data into an Excel file using `exceljs`.
+ * - Creates the file if it doesn't exist.
+ * - Appends data without reading the entire file.
+ * @param from - Departure airport code.
+ * @param to - Destination airport code.
+ * @param date - Flight date (YYYY-MM-DD).
+ * @param price - Flight price.
+ */
+export async function savePrice(from: string, to: string, date: string, price: number) {
+  const workbook = new ExcelJS.Workbook();
+  let worksheet: ExcelJS.Worksheet;
 
-export function savePrice(from: string, to: string, date: string, price: number) {
-  let data: any[] = [];
-
+  // If file exists, load it; otherwise, create a new one
   if (fs.existsSync(FILE_PATH)) {
-    const fileContent = fs.readFileSync(FILE_PATH, "utf-8");
-    data = JSON.parse(fileContent);
+    await workbook.xlsx.readFile(FILE_PATH);
+    worksheet = workbook.getWorksheet("Flight Prices") || workbook.addWorksheet("Flight Prices");
+  } else {
+    worksheet = workbook.addWorksheet("Flight Prices");
+    worksheet.addRow(["Date", "From", "To", "Price"]); // Header row
   }
 
-  data.push({ from, to, date, price, timestamp: new Date().toISOString() });
+  // Append new data as a new row
+  worksheet.addRow([date, from, to, price]);
+  console.log(`💾 Saved: ${date} | ${from} → ${to} | ${price} MYR`);
 
-  fs.writeFileSync(FILE_PATH, JSON.stringify(data, null, 2));
-  console.log("💾 Flight price saved!");
+  // Save workbook
+  await workbook.xlsx.writeFile(FILE_PATH);
 }
