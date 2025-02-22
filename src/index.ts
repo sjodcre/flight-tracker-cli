@@ -18,9 +18,15 @@ program
   .version("1.0.0")
   .description("Flight Price Tracker CLI")
   .command("track")
-  .description("Track flight prices for Kuala Lumpur (KUL) → Sapporo (CTS)")
-  .action(() => {
-    trackFlight();
+  .description("Track flight prices")
+  .option("-d, --departure <code>", "Departure airport (IATA code)", "KUL")
+  .option("-a, --arrival <code>", "Arrival airport (IATA code)", "CTS")
+  .option("-o, --outbound <date>", "Outbound date (YYYY-MM-DD)")
+  .option("-r, --return <date>", "Return date (YYYY-MM-DD)")
+  .action((options) => {
+    trackFlight(options.departure, options.arrival, options.outbound, options.return);
   });
 
 program.parse(process.argv);
+
+

@@ -12,7 +12,8 @@ const FILE_PATH = "data.xlsx";
  * - Ensures a row is saved even if no flights exist.
  */
 export async function savePrice(
-  flights: any[],
+  outboundFlights: any[],
+  returnFlights: any[],
   queryDate: string,
   outboundDate: string,
   returnDate: string,
@@ -21,6 +22,12 @@ export async function savePrice(
   priceLevel: string,
   lowestPrice: number
 ) {
+  if (outboundFlights.length !== returnFlights.length) {
+    console.log("Error: Outbound and return flights arrays have different lengths");
+    return;
+  }
+
+
   const workbook = new ExcelJS.Workbook();
   let worksheet: ExcelJS.Worksheet;
 
@@ -32,53 +39,69 @@ export async function savePrice(
     worksheet = workbook.addWorksheet("Flight Prices");
     worksheet.addRow([
       "Query Date",
-      "Outbound Date",
+      "Outbound Date", 
       "Return Date",
       "Best Flight?",
-      "Airline",
+      "Outbound Airline",
       "From",
-      "To",
-      "Departure Time",
-      "Arrival Time",
-      "Duration (min)",
-      "Layovers",
-      "Price (MYR)",
+      "To", 
+      "Departure Time Outbound",
+      "Arrival Time Outbound",
+      "Duration Outbound (min)",
+      "Outbound Layovers",
+      "Return Airline",
+      "Return From",
+      "Return To",
+      "Departure Time Return",
+      "Arrival Time Return", 
+      "Duration Return (min)",
+      "Return Layovers",
       "Lowest Price (MYR)",
       "Price Level",
       "Remarks"
     ]);
   }
 
-  if (flights.length > 0) {
-    flights.forEach((flight) => {
-      const firstLeg = flight.flights[0]; // Get first leg of the journey
+  if (outboundFlights.length > 0) {
+    outboundFlights.forEach((outboundFlight, index) => {
+      const firstLegOutbound = outboundFlight.flights[0]; // Get first leg of outbound journey
+      const returnFlight = returnFlights[index]; // Get matching return flight
+      const firstLegReturn = returnFlight.flights[0]; // Get first leg of return journey
 
       const row = worksheet.addRow([
         queryDate,
         outboundDate,
         returnDate,
-        flight.best_flight ? "✅ Yes" : "❌ No", // Boolean flag
-        firstLeg.airline || "NULL",
-        firstLeg.departure_airport?.id || "NULL",
-        firstLeg.arrival_airport?.id || "NULL",
-        firstLeg.departure_airport?.time || "NULL",
-        firstLeg.arrival_airport?.time || "NULL",
-        flight.total_duration || "NULL",
-        flight.layovers?.length || 0,
-        flight.price || "NULL",
+        outboundFlight.best_flight ? "✅ Yes" : "❌ No", // Boolean flag
+        firstLegOutbound.airline || "NULL",
+        firstLegOutbound.departure_airport?.id || "NULL",
+        firstLegOutbound.arrival_airport?.id || "NULL",
+        firstLegOutbound.departure_airport?.time || "NULL",
+        firstLegOutbound.arrival_airport?.time || "NULL",
+        outboundFlight.total_duration || "NULL",
+        outboundFlight.layovers?.length || 0,
+        firstLegReturn.airline || "NULL",
+        firstLegReturn.departure_airport?.id || "NULL", 
+        firstLegReturn.arrival_airport?.id || "NULL",
+        firstLegReturn.departure_airport?.time || "NULL",
+        firstLegReturn.arrival_airport?.time || "NULL",
+        returnFlight.total_duration || "NULL",
+        returnFlight.layovers?.length || 0,
         lowestPrice, // ✅ Store lowest price
         priceLevel.toUpperCase(),
         "Flight available" // ✅ Default remark for available flights
       ]);
 
       // ✅ Color-code Price Level column
-      const priceLevelCell = row.getCell(14);
+      const priceLevelCell = row.getCell(20); // Updated cell index since we added more columns
       if (priceLevel === "high") {
         priceLevelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0000" } }; // Red
       } else if (priceLevel === "medium") {
         priceLevelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFFF00" } }; // Yellow
       } else if (priceLevel === "typical") {
         priceLevelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "00FF00" } }; // Green
+      } else if (priceLevel === "low") {
+        priceLevelCell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "0000FF" } }; // Blue
       }
     });
   } else {
@@ -91,18 +114,25 @@ export async function savePrice(
       "NULL",
       origin,
       destination,
-      "NULL",
-      "NULL",
-      "NULL",
-      "NULL",
-      "NULL",
+      "NULL", // Outbound departure time
+      "NULL", // Outbound arrival time
+      "NULL", // Outbound duration
+      "NULL", // Outbound layovers
+      "NULL", // Outbound price
+      "NULL", // Return airline
+      "NULL", // Return departure airport
+      "NULL", // Return arrival airport
+      "NULL", // Return departure time
+      "NULL", // Return arrival time
+      "NULL", // Return duration
+      "NULL", // Return layovers
       lowestPrice,
       priceLevel.toUpperCase(),
       "No direct flights found"
     ]);
   }
 
-  console.log(`💾 Saved ${flights.length} flight(s) to Excel.`);
+  console.log(`💾 Saved ${outboundFlights.length} flight(s) to Excel.`);
 
   // Save workbook
   await workbook.xlsx.writeFile(FILE_PATH);

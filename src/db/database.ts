@@ -20,3 +20,4 @@ export function savePrice(from: string, to: string, date: string, price: number)
   stmt.run(from, to, date, price, new Date().toISOString());
   console.log("💾 Flight price saved to database!");
 }
+// not used

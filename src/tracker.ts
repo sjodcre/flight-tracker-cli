@@ -20,19 +20,21 @@ export async function trackFlight(
     return;
   }
 
+    // ❌ If return date is provided but outbound date is missing, throw an error
+    if (!outbound_date && return_date) {
+      console.log(
+        chalk.red(
+          "❌ Error: If you provide a return date, you must also specify an outbound date."
+        )
+      );
+      return;
+    }
+
+
+
   // Calculate dates
   const currentDate = new Date();
   const queryDate = currentDate.toISOString().split("T")[0]; // Current date in YYYY-MM-DD format
-
-  // ❌ If return date is provided but outbound date is missing, throw an error
-  if (!outbound_date && return_date) {
-    console.log(
-      chalk.red(
-        "❌ Error: If you provide a return date, you must also specify an outbound date."
-      )
-    );
-    return;
-  }
 
   // const outboundDate = new Date(currentDate);
   // outboundDate.setDate(outboundDate.getDate() + 30);
@@ -41,17 +43,23 @@ export async function trackFlight(
   // returnDate.setDate(returnDate.getDate() + 10);
 
   let outboundDate = outbound_date ? new Date(outbound_date) : new Date(currentDate);
-  if (!outbound_date) outboundDate.setDate(outboundDate.getDate() + 1);
+  if (!outbound_date) {
+    outboundDate.setDate(outboundDate.getDate() + 1);
+    console.log(chalk.yellow(`ℹ️ No outbound date provided. Setting to tomorrow (${outboundDate.toISOString().split('T')[0]})`));
+  }
 
   let returnDate = return_date ? new Date(return_date) : new Date(outboundDate);
-  console.log(returnDate);
-  if (!return_date) returnDate.setDate(returnDate.getDate() + 10);
+  if (!return_date) {
+    returnDate.setDate(returnDate.getDate() + 10);
+    console.log(chalk.yellow(`ℹ️ No return date provided. Setting to ${returnDate.toISOString().split('T')[0]} (outbound + 10 days)`));
+  }
 
   const outboundDateString = outboundDate.toISOString().split("T")[0];
   const returnDateString = returnDate.toISOString().split("T")[0];
 
   // const origin = "KUL";
   // const destination = "CTS";
+  
   console.log(chalk.blue(`Query Date: ${queryDate}`));
   console.log(chalk.blue(`Outbound Date: ${outboundDateString}`));
   console.log(chalk.blue(`Return Date: ${returnDateString}`));
@@ -78,6 +86,7 @@ export async function trackFlight(
     const { best_flights: outboundBestFlights, other_flights: outboundOtherFlights, price_insights } = outboundResponse.data;
 
     let allOutboundFlights: any[] = [];
+    let allReturnFlights: any[] = [];
     let priceLevel = price_insights ? price_insights.price_level : "unknown";
     let lowestPrice = price_insights?.lowest_price || "NULL";
 
@@ -100,7 +109,9 @@ export async function trackFlight(
         console.log("\n");
       });
 
-      allOutboundFlights = outboundBestFlights.map((f: any) => ({ ...f, best_flight: true }));
+      // allOutboundFlights = outboundBestFlights.map((f: any) => ({ ...f, best_flight: true }));
+      allOutboundFlights = [{ ...outboundBestFlights[0], best_flight: true }];
+
 
       // Select the first outbound flight's departure_token for return flight search
       console.log(chalk.magenta(`Using first best outbound flight for return search`));
@@ -146,8 +157,9 @@ export async function trackFlight(
       }
 
       console.log(chalk.bold('\n✈️  Return Flight Options:'));
-      const allReturnFlights = [...(returnBestFlights || []), ...(returnOtherFlights || [])];
-      allReturnFlights.forEach((flight, index) => {
+      const returnFlights = [...(returnBestFlights || []), ...(returnOtherFlights || [])];
+      allReturnFlights.push(returnFlights[0]);
+      returnFlights.forEach((flight, index) => {
         const firstLeg = flight.flights[0]; // First leg of journey
         console.log(
           chalk.green(`#${index + 1}: ${firstLeg.airline} - ${flight.price} MYR`)
@@ -184,7 +196,8 @@ export async function trackFlight(
         console.log("\n");
       });
 
-      allOutboundFlights = outboundOtherFlights.map((f: any) => ({ ...f, best_flight: false }));
+      // allOutboundFlights = outboundOtherFlights.map((f: any) => ({ ...f, best_flight: false }));
+      allOutboundFlights = [{ ...outboundOtherFlights[0], best_flight: false }];
 
       console.log(chalk.magenta(`Using first other outbound flight for return search`));
       const selectedFlight = allOutboundFlights[0];
@@ -229,8 +242,9 @@ export async function trackFlight(
       }
 
       console.log(chalk.bold('\n✈️  Return Flight Options:'));
-      const allReturnFlights = [...(returnBestFlights || []), ...(returnOtherFlights || [])];
-      allReturnFlights.forEach((flight, index) => {
+      const returnFlights = [...(returnBestFlights || []), ...(returnOtherFlights || [])];
+      allReturnFlights.push(returnFlights[0]);
+      returnFlights.forEach((flight, index) => {
         const firstLeg = flight.flights[0]; // First leg of journey
         console.log(
           chalk.green(`#${index + 1}: ${firstLeg.airline} - ${flight.price} MYR`)
@@ -250,6 +264,7 @@ export async function trackFlight(
       console.log(chalk.red("❌ No flights found for this route."));
       savePrice(
         [], // Empty flight list
+        [], // Empty return flight list
         queryDate,
         outboundDateString,
         returnDateString,
@@ -283,7 +298,7 @@ export async function trackFlight(
     // if (other_flights) {
     //   allFlights.push(...other_flights.map((f: any) => ({ ...f, best_flight: false })));
     // }
-    savePrice(allOutboundFlights, queryDate, outboundDateString, returnDateString, departure_id, arrival_id, priceLevel, price_insights.lowest_price);
+    savePrice(allOutboundFlights, allReturnFlights, queryDate, outboundDateString, returnDateString, departure_id, arrival_id, priceLevel, price_insights.lowest_price);
   } catch (error) {
     spinner.stop();
     if (error instanceof Error) {
